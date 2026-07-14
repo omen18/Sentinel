@@ -1,0 +1,14 @@
+__pycache__/
+*.pt
+*.pth
+runs/
+weights/
+data/idd*/
+data/accident/
+data/*.parquet
+.env
+node_modules/
+.next/
+.pytest_cache/
+.DS_Store
+dashboard_old/
