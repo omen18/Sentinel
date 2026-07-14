@@ -1,0 +1,20 @@
+# core ML
+torch>=2.2
+torchvision
+ultralytics>=8.2
+scikit-learn
+xgboost
+numpy
+pandas
+opencv-python-headless
+# agents / GenAI (Week 4-5)
+langgraph>=0.2
+langchain>=0.3
+anthropic
+pgvector
+psycopg[binary]
+# backend (Week 6-7)
+fastapi
+uvicorn[standard]
+python-multipart
+websockets

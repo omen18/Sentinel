@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL — AI Road Incident Intelligence</title>
+<meta name="description" content="Real-time AI-powered road incident detection, severity assessment, and autonomous emergency dispatch platform.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ─── Design Tokens ─── */
+:root {
+  --bg-deep: #07090d;
+  --bg-base: #0c0f15;
+  --bg-panel: rgba(14, 18, 27, 0.75);
+  --bg-glass: rgba(18, 23, 35, 0.55);
+  --border: rgba(255,255,255,0.06);
+  --border-glow: rgba(240,164,40,0.25);
+
+  --amber: #f0a428;
+  --amber-dim: #8a6420;
+  --amber-glow: rgba(240,164,40,0.15);
+  --red: #ff4545;
+  --red-glow: rgba(255,69,69,0.2);
+  --green: #34d399;
+  --green-glow: rgba(52,211,153,0.15);
+  --cyan: #22d3ee;
+  --cyan-glow: rgba(34,211,238,0.1);
+  --purple: #a78bfa;
+
+  --text-primary: #f0ece4;
+  --text-secondary: #7a8394;
+  --text-dim: #4a5260;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --glass-blur: 20px;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Reset & Base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 13px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Animated Background ─── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(240,164,40,0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(34,211,238,0.02) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(255,69,69,0.02) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* grid overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Boot Sequence ─── */
+#boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  transition: opacity 0.8s ease, visibility 0.8s ease;
+}
+#boot-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+#boot-overlay h1 {
+  font-family: 'Inter', sans-serif;
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  background: linear-gradient(135deg, var(--amber) 0%, var(--red) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+#boot-log {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: left;
+  width: 320px;
+  line-height: 2;
+}
+#boot-log .ok { color: var(--green); }
+.boot-bar {
+  width: 200px; height: 3px; background: var(--border);
+  border-radius: 3px; overflow: hidden;
+}
+.boot-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--amber), var(--red));
+  transition: width 0.4s ease;
+}
+
+/* ─── Header ─── */
+header {
+  position: relative; z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--amber) 0%, #ff7b45 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.logo-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-left: 2px;
+}
+
+/* ─── Stats Bar ─── */
+.stats-bar {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  align-items: center;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  min-width: 80px;
+  transition: var(--transition);
+}
+.stat-card:hover { border-color: var(--border-glow); background: var(--amber-glow); }
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.stat-value.amber { color: var(--amber); }
+.stat-value.green { color: var(--green); }
+.stat-value.red { color: var(--red); }
+.stat-value.cyan { color: var(--cyan); }
+.stat-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+/* ─── Chips ─── */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(255,255,255,0.02);
+  transition: var(--transition);
+}
+.chip:hover { border-color: var(--amber-dim); }
+.chip b { color: var(--text-primary); font-weight: 600; }
+
+#clock {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--amber);
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 68px;
+  text-align: right;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Main Grid ─── */
+main {
+  position: relative; z-index: 1;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px 1fr 400px;
+  gap: 1px;
+  min-height: 0;
+}
+main > section {
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ─── Section Headers ─── */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 8px;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+.section-title .icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+
+/* ─── Zone Map ─── */
+#map-container { flex: 1; padding: 8px; min-height: 0; }
+#map { width: 100%; height: 100%; }
+.zone-node {
+  fill: var(--bg-panel);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: var(--transition);
+  cursor: pointer;
+}
+.zone-node:hover { stroke: var(--cyan); stroke-width: 2; fill: var(--cyan-glow); }
+.zone-node.hot {
+  stroke: var(--red);
+  fill: var(--red-glow);
+  animation: zone-pulse 1.4s ease-in-out infinite;
+}
+.zone-label {
+  fill: var(--text-secondary);
+  font: 500 0.28px 'JetBrains Mono', monospace;
+  pointer-events: none;
+}
+.zone-edge { stroke: rgba(255,255,255,0.05); stroke-width: 0.8; }
+.route {
+  stroke: var(--amber);
+  stroke-width: 2.5;
+  fill: none;
+  stroke-dasharray: 6 5;
+  animation: route-dash 0.8s linear infinite;
+  filter: drop-shadow(0 0 4px var(--amber-glow));
+}
+.unit-marker { transition: var(--transition); }
+.unit-icon { fill: var(--green); }
+.unit-icon.busy { fill: var(--amber); }
+
+@keyframes zone-pulse {
+  0%, 100% { stroke-width: 1.5; filter: none; }
+  50% { stroke-width: 3; filter: drop-shadow(0 0 8px var(--red-glow)); }
+}
+@keyframes route-dash { to { stroke-dashoffset: -11; } }
+
+/* Unit List */
+#unitlist {
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--border);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.unit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.02);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+.unit-row:hover { background: rgba(255,255,255,0.05); }
+.unit-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green-glow);
+}
+.unit-dot.busy {
+  background: var(--amber);
+  box-shadow: 0 0 6px var(--amber-glow);
+  animation: unit-blink 1.5s ease infinite;
+}
+@keyframes unit-blink {
+  50% { opacity: 0.5; }
+}
+.unit-name { color: var(--text-primary); font-weight: 600; }
+.unit-status { margin-left: auto; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.unit-status.ready { color: var(--green); }
+.unit-status.engaged { color: var(--amber); }
+
+/* ─── Center: Perception Feed ─── */
+#feedwrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-deep);
+  min-height: 0;
+  overflow: hidden;
+}
+#feed {
+  max-width: 100%; max-height: 100%;
+  position: absolute;
+  border-radius: 4px;
+}
+#empty {
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 2.2;
+  font-size: 13px;
+}
+#empty .empty-icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+/* Controls */
+.controls {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  flex: none;
+  border-top: 1px solid var(--border);
+  align-items: center;
+  background: var(--bg-panel);
+  backdrop-filter: blur(var(--glass-blur));
+}
+button, label.btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font: 600 11px 'Inter', sans-serif;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+button:hover, label.btn:hover {
+  background: var(--amber);
+  color: var(--bg-deep);
+  border-color: var(--amber);
+  box-shadow: 0 0 20px var(--amber-glow);
+}
+button:active { transform: scale(0.97); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+button.primary {
+  background: linear-gradient(135deg, var(--amber), #ff7b45);
+  color: var(--bg-deep);
+  border-color: transparent;
+  font-weight: 700;
+}
+button.primary:hover {
+  box-shadow: 0 0 30px rgba(240,164,40,0.4);
+  filter: brightness(1.1);
+}
+button.danger {
+  border-color: rgba(255,69,69,0.3);
+  color: var(--red);
+}
+button.danger:hover {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+  box-shadow: 0 0 20px var(--red-glow);
+}
+input[type=file] { display: none; }
+
+/* ─── Severity Gauge ─── */
+#gauge {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gauge-ring {
+  position: relative;
+  width: 54px; height: 54px;
+}
+.gauge-ring svg {
+  width: 54px; height: 54px;
+  transform: rotate(-90deg);
+}
+.gauge-bg {
+  fill: none;
+  stroke: rgba(255,255,255,0.06);
+  stroke-width: 4;
+}
+.gauge-fill {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 150.8;
+  stroke-dashoffset: 150.8;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.5s ease;
+}
+.gauge-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+#sev-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+#sev-label b { font-weight: 700; }
+#sev-label .priority-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-left: 4px;
+}
+.priority-badge.HIGH { background: var(--red-glow); color: var(--red); }
+.priority-badge.MEDIUM { background: var(--amber-glow); color: var(--amber); }
+.priority-badge.LOW { background: rgba(255,255,255,0.05); color: var(--text-dim); }
+
+/* ─── Right Panel ─── */
+#right { background: var(--bg-base); }
+
+/* Dispatch Log */
+#log {
+  flex: 1.2;
+  overflow-y: auto;
+  padding: 4px 16px 10px;
+  min-height: 0;
+}
+#log::-webkit-scrollbar { width: 4px; }
+#log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.tr {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  margin: 3px 0;
+  animation: trace-in 0.4s ease-out;
+}
+@keyframes trace-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.tr .who {
+  min-width: 90px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-top: 2px;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.tr .who .avatar { font-size: 12px; }
+.tr.analyst .who { color: #6fb7e8; }
+.tr.dispatcher .who { color: var(--amber); }
+.tr.reporter .who { color: var(--green); }
+.tr.system .who { color: var(--text-dim); }
+.tr .what {
+  color: var(--text-primary);
+  flex: 1;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.tr .what small {
+  color: var(--text-dim);
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  margin-top: 2px;
+}
+.tr.confirmed { border-left-color: var(--red); background: var(--red-glow); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+
+/* Incidents */
+#incidents {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+#incidents::-webkit-scrollbar { width: 4px; }
+#incidents::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.inc {
+  padding: 10px 12px;
+  margin: 6px 0;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-dim);
+  transition: var(--transition);
+  animation: card-in 0.5s ease-out;
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.inc:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
+.inc.high-sev { border-left-color: var(--red); }
+.inc.med-sev { border-left-color: var(--amber); }
+.inc.low-sev { border-left-color: var(--text-dim); }
+.inc .top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.inc .id {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.inc .zone-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--cyan-glow);
+  color: var(--cyan);
+  font-weight: 600;
+}
+.inc .verdict-icon { font-size: 12px; }
+.inc .sev {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+}
+.inc .sev.HIGH { color: var(--red); }
+.inc .sev.MEDIUM { color: var(--amber); }
+.inc .sev.LOW { color: var(--text-dim); }
+.inc .nar {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+/* ─── Console (Chat-bubble) ─── */
+#console {
+  flex: none;
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 34%;
+  background: var(--bg-panel);
+  backdrop-filter: blur(var(--glass-blur));
+}
+#answers {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 40px;
+}
+#answers::-webkit-scrollbar { width: 4px; }
+#answers::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.chat-msg {
+  max-width: 90%;
+  padding: 8px 12px;
+  border-radius: 12px 12px 12px 4px;
+  animation: msg-in 0.3s ease-out;
+}
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.chat-msg.question {
+  align-self: flex-end;
+  background: linear-gradient(135deg, rgba(240,164,40,0.15), rgba(255,123,69,0.1));
+  border: 1px solid rgba(240,164,40,0.2);
+  border-radius: 12px 12px 4px 12px;
+  color: var(--amber);
+  font-weight: 500;
+}
+.chat-msg.answer {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.chat-msg.system-msg {
+  align-self: center;
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 4px 12px;
+}
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  align-self: flex-start;
+}
+.typing-indicator span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: typing-bounce 1.2s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+#askrow {
+  display: flex;
+  gap: 8px;
+}
+#askrow input {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font: 400 13px 'Inter', sans-serif;
+  padding: 10px 14px;
+  border-radius: 24px;
+  transition: var(--transition);
+}
+#askrow input::placeholder { color: var(--text-dim); }
+#askrow input:focus {
+  outline: none;
+  border-color: var(--amber-dim);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
+#askrow button {
+  border-radius: 24px;
+  padding: 10px 20px;
+}
+
+/* ─── Toast Notifications ─── */
+#toast-container {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border);
+  min-width: 300px;
+  animation: toast-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.toast.critical {
+  border-color: rgba(255,69,69,0.4);
+  box-shadow: 0 8px 32px rgba(255,69,69,0.15);
+}
+.toast.success {
+  border-color: rgba(52,211,153,0.3);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(40px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+.toast-icon { font-size: 20px; }
+.toast-body { flex: 1; }
+.toast-title { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.toast-title.critical { color: var(--red); }
+.toast-title.success { color: var(--green); }
+.toast-desc { color: var(--text-secondary); font-size: 11px; }
+.toast-close {
+  background: none; border: none; color: var(--text-dim);
+  cursor: pointer; font-size: 16px; padding: 4px;
+}
+
+/* ─── Responsive ─── */
+@media (prefers-reduced-motion: reduce) {
+  .route, .zone-node.hot, .unit-dot.busy { animation: none; }
+  .tr, .inc, .chat-msg, .toast { animation: none; }
+}
+@media (max-width: 1100px) {
+  main { grid-template-columns: 1fr; overflow-y: auto; }
+  main > section { min-height: 380px; }
+  .stats-bar { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Boot Sequence ─── -->
+<div id="boot-overlay">
+  <h1>SENTINEL</h1>
+  <div id="boot-log"></div>
+  <div class="boot-bar"><div class="boot-bar-fill" id="boot-fill"></div></div>
+</div>
+
+<!-- ─── Toast Container ─── -->
+<div id="toast-container"></div>
+
+<!-- ─── Header ─── -->
+<header>
+  <div>
+    <div class="logo">SENTINEL</div>
+    <div class="logo-sub">incident command</div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card">
+      <div class="stat-value amber" id="stat-incidents">0</div>
+      <div class="stat-label">Incidents</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value red" id="stat-confirmed">0</div>
+      <div class="stat-label">Confirmed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value green" id="stat-units">0/4</div>
+      <div class="stat-label">Units Active</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value cyan" id="stat-severity">0.0</div>
+      <div class="stat-label">Avg Severity</div>
+    </div>
+  </div>
+  <div id="clock"></div>
+</header>
+
+<!-- ─── Main ─── -->
+<main>
+  <!-- LEFT: Zone Map -->
+  <section id="left">
+    <div class="section-title"><span class="icon">🗺️</span> Zone Grid</div>
+    <div id="map-container">
+      <svg id="map" viewBox="-0.6 -0.8 8.4 6.8" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="section-title"><span class="icon">🚑</span> Units</div>
+    <div id="unitlist"></div>
+  </section>
+
+  <!-- CENTER: Perception Feed -->
+  <section id="center">
+    <div class="section-title"><span class="icon">👁️</span> Perception Feed</div>
+    <div id="feedwrap">
+      <canvas id="feed" width="640" height="480"></canvas>
+      <div id="empty">
+        <span class="empty-icon">📡</span>
+        No feed active.<br>
+        Upload a frame, start the webcam,<br>
+        or simulate an incident.
+      </div>
+    </div>
+    <div class="controls">
+      <label class="btn">📁 Upload<input type="file" id="file" accept="image/*"></label>
+      <button id="cam">📷 Webcam</button>
+      <button id="demo" class="primary">⚡ Simulate</button>
+      <button id="burst" class="danger">🔥 Burst Demo</button>
+      <div id="gauge">
+        <div class="gauge-ring">
+          <svg viewBox="0 0 54 54">
+            <circle class="gauge-bg" cx="27" cy="27" r="24"/>
+            <circle class="gauge-fill" id="gauge-fill" cx="27" cy="27" r="24"/>
+          </svg>
+          <div class="gauge-text" id="gauge-num">—</div>
+        </div>
+        <div id="sev-label">SEV <b>—</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: Dispatch + Incidents + Console -->
+  <section id="right">
+    <div class="section-title"><span class="icon">🤖</span> Dispatch Log</div>
+    <div id="log"></div>
+    <div class="section-title"><span class="icon">📋</span> Incidents</div>
+    <div id="incidents"></div>
+    <div id="console">
+      <div id="answers">
+        <div class="chat-msg system-msg">💬 Ask the Reporter agent about incident history.</div>
+      </div>
+      <div id="askrow">
+        <input id="ask" placeholder="e.g. summarize high severity incidents in Z-06"
+               aria-label="Ask about incidents">
+        <button id="send">Ask</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (p, opt) => fetch(p, opt).then(r => r.json());
+
+/* ─── Boot Sequence ─── */
+(async function boot(){
+  const steps = [
+    ['Initializing perception engine...', 20],
+    ['Loading YOLOv8 weights...', 40],
+    ['SeverityNet online...', 60],
+    ['Agent graph compiled...', 80],
+    ['Dashboard connected ✓', 100],
+  ];
+  const log = $('#boot-log');
+  const fill = $('#boot-fill');
+  for (const [msg, pct] of steps) {
+    await new Promise(r => setTimeout(r, 350));
+    log.innerHTML += `${msg} <span class="ok">✓</span><br>`;
+    fill.style.width = pct + '%';
+  }
+  await new Promise(r => setTimeout(r, 500));
+  $('#boot-overlay').classList.add('hidden');
+})();
+
+/* ─── Clock ─── */
+setInterval(() => $('#clock').textContent =
+  new Date().toLocaleTimeString('en-IN', {hour12:false}), 1000);
+
+/* ─── Health Chips ─── */
+async function health(){
+  try {
+    const h = await api('/health');
+    $('#chips').innerHTML =
+      Object.entries(h.models).map(([k,v]) =>
+        `<div class="chip">${k}: <b>${v}</b></div>`).join('') +
+      `<div class="chip">agents: <b>${h.llm}</b></div>`;
+  } catch(e) {}
+}
+
+/* ─── Live Stats ─── */
+async function refreshStats(){
+  try {
+    const s = await api('/api/stats');
+    animateCounter('stat-incidents', s.total_incidents);
+    animateCounter('stat-confirmed', s.confirmed);
+    $('#stat-units').textContent = `${s.active_units}/${s.total_units}`;
+    $('#stat-severity').textContent = s.avg_severity.toFixed(1);
+  } catch(e) {}
+}
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  const current = parseInt(el.textContent) || 0;
+  if (current === target) return;
+  const diff = target - current;
+  const steps = Math.min(Math.abs(diff), 15);
+  let step = 0;
+  const timer = setInterval(() => {
+    step++;
+    el.textContent = Math.round(current + (diff * step / steps));
+    if (step >= steps) clearInterval(timer);
+  }, 30);
+}
+
+/* ─── Zone Map ─── */
+let zoneData, hotZones = new Set();
+async function drawMap(routePath){
+  if(!zoneData) zoneData = await api('/api/zones');
+  const units = await api('/api/units');
+  const {zones, edges} = zoneData;
+  const P = ([a,b]) => `${zones[a].x},${zones[a].y} ${zones[b].x},${zones[b].y}`;
+  let svg = edges.map(e =>
+    `<polyline class="zone-edge" points="${P(e)}"/>`).join('');
+  if(routePath && routePath.length > 1){
+    const pts = routePath.map(z => `${zones[z].x},${zones[z].y}`).join(' ');
+    svg += `<polyline class="route" points="${pts}"/>`;
+  }
+  for(const [id,{x,y}] of Object.entries(zones)){
+    svg += `<circle class="zone-node ${hotZones.has(id)?'hot':''}" cx="${x}" cy="${y}" r="0.28"/>
+            <text class="zone-label" x="${x}" y="${y-0.4}" text-anchor="middle"
+                  font-size="0.28">${id}</text>`;
+  }
+  for(const [uid,u] of Object.entries(units)){
+    const z = zones[u.zone];
+    if (!z) continue;
+    svg += `<g class="unit-marker">
+      <rect class="unit-icon ${u.busy?'busy':''}" x="${z.x-0.12}" y="${z.y+0.32}"
+            width="0.24" height="0.24" rx="0.06"/>
+    </g>`;
+  }
+  $('#map').innerHTML = svg;
+
+  // Unit list
+  $('#unitlist').innerHTML = Object.entries(units).map(([uid,u]) =>
+    `<div class="unit-row">
+       <div class="unit-dot ${u.busy?'busy':''}"></div>
+       <span class="unit-name">${uid}</span>
+       <span>${u.type}</span>
+       <span>${u.zone}</span>
+       <span class="unit-status ${u.busy?'engaged':'ready'}">${u.busy?'ENGAGED':'READY'}</span>
+     </div>`
+  ).join('');
+}
+
+/* ─── Feed Rendering ─── */
+const canvas = $('#feed'), ctx = canvas.getContext('2d');
+let lastImage = null;
+function renderFrame(result){
+  $('#empty').style.display = 'none';
+  const d = result.detections, [w,h] = d.img_size || [640,480];
+  canvas.width = w; canvas.height = h;
+  if(lastImage) ctx.drawImage(lastImage, 0, 0, w, h);
+  else {
+    // stylized placeholder background
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#0c0f15');
+    grad.addColorStop(0.6, '#0f1219');
+    grad.addColorStop(1, '#161b25');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h);
+    // road lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([20, 15]);
+    ctx.beginPath(); ctx.moveTo(w*0.5, h*0.4); ctx.lineTo(w*0.5, h); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const conf = d.collision_conf;
+  for(const b of d.boxes){
+    const [x1,y1,x2,y2] = b.xyxy;
+    const color = conf > 0.5 ? '#ff4545' : '#f0a428';
+    // glow effect
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x1, y1, x2-x1, y2-y1);
+    ctx.shadowBlur = 0;
+    // label
+    ctx.font = '600 11px Inter, sans-serif';
+    const label = `${b.cls} ${b.conf}`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(7,9,13,0.85)';
+    ctx.fillRect(x1, y1-18, tw+10, 18);
+    ctx.fillStyle = color;
+    ctx.fillText(label, x1+5, y1-5);
+  }
+
+  // Update severity gauge
+  updateGauge(result.ann.severity, result.ann.priority);
+}
+
+/* ─── Severity Gauge ─── */
+function updateGauge(severity, priority){
+  const circumference = 2 * Math.PI * 24; // r=24
+  const offset = circumference - (severity / 100) * circumference;
+  const fill = $('#gauge-fill');
+  fill.style.strokeDashoffset = offset;
+
+  let color;
+  if (severity > 60) color = 'var(--red)';
+  else if (severity > 35) color = 'var(--amber)';
+  else color = 'var(--green)';
+  fill.style.stroke = color;
+
+  $('#gauge-num').textContent = Math.round(severity);
+  $('#sev-label').innerHTML = `SEV <b>${severity.toFixed(1)}</b>` +
+    `<span class="priority-badge ${priority}">${priority}</span>`;
+}
+
+/* ─── Dispatch Log ─── */
+const agentAvatars = { analyst: '🔍', dispatcher: '🚨', reporter: '📝', system: '⏱️' };
+function logTrace(result){
+  const el = $('#log');
+  const stamp = new Date().toLocaleTimeString('en-IN', {hour12:false});
+  el.insertAdjacentHTML('beforeend',
+    `<div class="tr system"><div class="who"><span class="avatar">${agentAvatars.system}</span> ${stamp}</div>
+     <div class="what">▶ ${result.incident_id} · ${result.zone}</div></div>`);
+  for(const t of result.trace){
+    const extras = Object.entries(t).filter(([k]) => !['agent','msg'].includes(k))
+      .map(([k,v]) => `${k}=${JSON.stringify(v)}`).join('  ');
+    const cls = t.msg.includes('CONFIRMED') ? 'confirmed' : '';
+    const avatar = agentAvatars[t.agent] || '⚙️';
+    el.insertAdjacentHTML('beforeend',
+      `<div class="tr ${t.agent} ${cls}"><div class="who"><span class="avatar">${avatar}</span> ${t.agent}</div>
+       <div class="what">${t.msg}${extras?`<small>${extras}</small>`:''}</div></div>`);
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ─── Incidents ─── */
+async function refreshIncidents(){
+  const rows = await api('/api/incidents?limit=20');
+  $('#incidents').innerHTML = rows.map(r => {
+    const sevClass = r.priority === 'HIGH' ? 'high-sev' : r.priority === 'MEDIUM' ? 'med-sev' : 'low-sev';
+    return `<div class="inc ${sevClass}"><div class="top">
+       <span class="id">${r.id}</span>
+       <span class="zone-badge">${r.zone}</span>
+       <span class="verdict-icon">${r.verdict === 'CONFIRMED' ? '⛔' : '✓'}</span>
+       <span class="sev ${r.priority}">${r.severity}</span></div>
+     <div class="nar">${r.narrative || ''}</div></div>`;
+  }).join('')
+    || '<div class="inc"><div class="nar" style="color:var(--text-dim)">No incidents yet. Click Simulate to begin.</div></div>';
+}
+
+/* ─── Toast Notifications ─── */
+function showToast(title, desc, type = 'info'){
+  const container = $('#toast-container');
+  const icons = { critical: '🚨', success: '✅', info: 'ℹ️' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type]||icons.info}</span>
+    <div class="toast-body">
+      <div class="toast-title ${type}">${title}</div>
+      <div class="toast-desc">${desc}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(40px)';
+    toast.style.transition = '0.4s ease'; setTimeout(() => toast.remove(), 400); }, 5000);
+}
+
+/* ─── Pipeline Handler ─── */
+function handle(result){
+  renderFrame(result);
+  logTrace(result);
+  if(result.report && result.report.verdict === 'CONFIRMED'){
+    hotZones.add(result.zone);
+    setTimeout(() => { hotZones.delete(result.zone); drawMap(); }, 20000);
+    if (result.ann && result.ann.priority === 'HIGH') {
+      showToast('HIGH SEVERITY INCIDENT', `${result.zone} — Severity ${result.ann.severity}`, 'critical');
+    }
+  }
+  drawMap(result.dispatch_path);
+  refreshIncidents();
+  refreshStats();
+}
+
+/* ─── Actions ─── */
+$('#demo').onclick = async () => {
+  $('#demo').textContent = '⏳ Analyzing...';
+  try {
+    lastImage = null;
+    handle(await api('/api/demo', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:'{}'}));
+  } finally { $('#demo').textContent = '⚡ Simulate'; }
+};
+
+$('#burst').onclick = async () => {
+  $('#burst').textContent = '🔥 Running...';
+  try {
+    const res = await api('/api/demo/burst', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:'{}'});
+    for (const r of res.incidents) handle(r);
+    showToast('Burst Complete', `${res.count} incidents fired`, 'success');
+  } finally { $('#burst').textContent = '🔥 Burst Demo'; }
+};
+
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  lastImage = await createImageBitmap(f);
+  const fd = new FormData(); fd.append('file', f);
+  handle(await api('/analyze/frame', {method:'POST', body:fd}));
+};
+
+let camStream = null, camTimer = null;
+$('#cam').onclick = async () => {
+  if(camStream){
+    clearInterval(camTimer); camStream.getTracks().forEach(t=>t.stop());
+    camStream = null; $('#cam').textContent = '📷 Webcam'; return;
+  }
+  camStream = await navigator.mediaDevices.getUserMedia({video:true});
+  const video = document.createElement('video');
+  video.srcObject = camStream; await video.play();
+  $('#cam').textContent = '⏹ Stop';
+  camTimer = setInterval(async () => {
+    const c = document.createElement('canvas');
+    c.width = video.videoWidth; c.height = video.videoHeight;
+    c.getContext('2d').drawImage(video, 0, 0);
+    lastImage = await createImageBitmap(c);
+    c.toBlob(async blob => {
+      const fd = new FormData(); fd.append('file', blob, 'frame.jpg');
+      handle(await api('/analyze/frame', {method:'POST', body:fd}));
+    }, 'image/jpeg', 0.8);
+  }, 2500);
+};
+
+/* ─── RAG Console (Chat Bubbles) ─── */
+async function ask(){
+  const q = $('#ask').value.trim(); if(!q) return;
+  $('#ask').value = '';
+  const a = $('#answers');
+  a.insertAdjacentHTML('beforeend',
+    `<div class="chat-msg question">› ${q}</div>`);
+  // typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'typing-indicator';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  a.appendChild(typing);
+  a.scrollTop = a.scrollHeight;
+
+  try {
+    const res = await api('/api/ask', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({question:q})});
+    typing.remove();
+    a.insertAdjacentHTML('beforeend',
+      `<div class="chat-msg answer">${res.answer.replace(/\n/g, '<br>')}</div>`);
+  } catch(e) {
+    typing.remove();
+    a.insertAdjacentHTML('beforeend',
+      `<div class="chat-msg answer">Error: ${e.message}</div>`);
+  }
+  a.scrollTop = a.scrollHeight;
+}
+$('#send').onclick = ask;
+$('#ask').addEventListener('keydown', e => { if(e.key === 'Enter') ask(); });
+
+/* ─── Boot ─── */
+health(); drawMap(); refreshIncidents(); refreshStats();
+setInterval(refreshStats, 10000);
+</script>
+</body>
+</html>
