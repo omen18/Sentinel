@@ -6,6 +6,9 @@ India loses ~1.7 lakh (170,000) people to road accidents every year. The single 
 
 ![demo](assets/demo.gif) <!-- Record this in Week 8 -->
 
+<img width="1280" height="832" alt="Screenshot 2026-07-15 at 6 33 07 PM" src="https://github.com/user-attachments/assets/4a3688a1-abb3-4c63-9f21-3980e5d6ff8d" />
+
+
 ---
 
 ## 🧠 Architecture
