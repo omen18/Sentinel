@@ -9,17 +9,21 @@ export function useSentinelSocket() {
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    // 1. Fetch initial state snapshot
+    const MIN_LOADING_MS = 3000; // Minimum time to show the loading screen
+
+    // 1. Fetch initial state snapshot (with minimum loading time)
     const fetchInitialState = async () => {
+      const startTime = Date.now();
+
+      let stateData: any;
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const res = await fetch(`${apiUrl}/api/state`);
-        const data = await res.json();
-        setInitialState(data);
+        stateData = await res.json();
       } catch (err) {
         console.error("Failed to load initial snapshot from API:", err);
         // Graceful fallback: set empty/default state so the dashboard loads and relies on WS
-        setInitialState({
+        stateData = {
           incidents: [],
           units: {
             "AMB-01": { zone: "Z-02", busy: false, type: "ambulance" },
@@ -44,8 +48,17 @@ export function useSentinelSocket() {
           },
           stats: { total_incidents: 0, confirmed: 0, active_units: 0, total_units: 4, avg_severity: 0 },
           health: { status: "ok", models: {}, llm: "heuristic" }
-        });
+        };
       }
+
+      // Wait for remaining minimum loading time
+      const elapsed = Date.now() - startTime;
+      const remaining = MIN_LOADING_MS - elapsed;
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remaining));
+      }
+
+      setInitialState(stateData);
     };
     fetchInitialState();
 

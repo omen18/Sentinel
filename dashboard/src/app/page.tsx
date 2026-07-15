@@ -22,9 +22,33 @@ export default function DashboardPage() {
   const stats = useSentinelStore((state) => state.stats);
   const loading = useSentinelStore((state) => state.loading);
 
+  const [bootStage, setBootStage] = useState(0);
   const [simulating, setSimulating] = useState(false);
   const [bursting, setBursting] = useState(false);
   const [time, setTime] = useState("");
+
+  const bootMessages = [
+    "INITIALIZING SENTINEL CORE...",
+    "LOADING PERCEPTION MODELS [YOLOv8 + AccidentCNN]...",
+    "CALIBRATING SEVERITYNET MULTI-HEAD ANN...",
+    "CONNECTING TO ROAD INTEL GRID...",
+    "ACTIVATING AGENT LAYER [ANALYST · DISPATCHER · REPORTER]...",
+    "SYNCING DISPATCH UNITS...",
+    "SYSTEM ONLINE — ENTERING COMMAND CENTER",
+  ];
+
+  // Boot sequence timer
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      setBootStage((prev) => {
+        if (prev < bootMessages.length - 1) return prev + 1;
+        clearInterval(interval);
+        return prev;
+      });
+    }, 400);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // Live Clock
   useEffect(() => {
@@ -75,13 +99,72 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col items-center justify-center gap-3 font-mono text-xs text-[#bd93f9]">
-        <div className="text-[26px] font-black tracking-widest bg-gradient-to-r from-[#ffb86c] to-[#ff5555] bg-clip-text text-transparent animate-pulse">
+      <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col items-center justify-center gap-6 font-mono text-xs text-[#bd93f9] overflow-hidden">
+        {/* Animated background grid */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(rgba(189,147,249,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(189,147,249,0.3) 1px, transparent 1px)`,
+          backgroundSize: '40px 40px',
+        }} />
+
+        {/* Glowing orb */}
+        <div className="relative">
+          <div className="absolute inset-0 w-20 h-20 rounded-full bg-gradient-to-r from-[#ffb86c] to-[#ff5555] blur-3xl opacity-30 animate-pulse" />
+          <div className="w-20 h-20 rounded-full border-2 border-[#ffb86c]/30 flex items-center justify-center relative">
+            <div className="w-14 h-14 rounded-full border border-[#ff5555]/20 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ffb86c] to-[#ff5555] animate-pulse shadow-[0_0_30px_rgba(255,85,85,0.4)]" />
+            </div>
+            {/* Spinning ring */}
+            <div className="absolute inset-[-4px] rounded-full border-2 border-transparent border-t-[#bd93f9] animate-spin" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="text-[32px] font-black tracking-[0.3em] bg-gradient-to-r from-[#ffb86c] via-[#ff5555] to-[#bd93f9] bg-clip-text text-transparent">
           SENTINEL
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 border-2 border-[#bd93f9] border-t-transparent rounded-full animate-spin" />
-          <span>CONNECTING TO ROAD INTEL GRID...</span>
+        <div className="text-[10px] tracking-[0.4em] text-[#6272a4] uppercase -mt-4">
+          AI Road Incident Intelligence
+        </div>
+
+        {/* Boot log */}
+        <div className="w-[420px] max-w-[90vw] mt-2 space-y-1">
+          {bootMessages.slice(0, bootStage + 1).map((msg, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 transition-all duration-300"
+              style={{
+                opacity: i <= bootStage ? 1 : 0,
+                transform: i <= bootStage ? 'translateY(0)' : 'translateY(8px)',
+              }}
+            >
+              <span className={`text-[10px] ${
+                i < bootStage
+                  ? 'text-[#50fa7b]'
+                  : i === bootStage
+                  ? 'text-[#ffb86c] animate-pulse'
+                  : 'text-[#6272a4]'
+              }`}>
+                {i < bootStage ? '✓' : i === bootStage ? '▸' : '○'}
+              </span>
+              <span className={`text-[10px] font-mono ${
+                i < bootStage
+                  ? 'text-[#6272a4]'
+                  : i === bootStage
+                  ? 'text-[#f8f8f2]'
+                  : 'text-[#44475a]'
+              }`}>
+                {msg}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-[420px] max-w-[90vw] h-[2px] bg-white/5 rounded-full overflow-hidden mt-2">
+          <div
+            className="h-full bg-gradient-to-r from-[#ffb86c] to-[#bd93f9] rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${((bootStage + 1) / bootMessages.length) * 100}%` }}
+          />
         </div>
       </div>
     );
